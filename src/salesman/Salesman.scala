@@ -9,8 +9,8 @@ object Salesman {
   case class Flight(source: String, destination: String, day: Int, cost: Int)
 
   def main(args: Array[String]): Unit = {
-    val a = getClass.getResource("/2.in.txt").getPath
-    System.setIn(new FileInputStream(a))
+//    val a = getClass.getResource("/2.in.txt").getPath
+//    System.setIn(new FileInputStream(a))
     val start = System.currentTimeMillis
 
     val (numberOfAreas, source) = readHeader()
