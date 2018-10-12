@@ -2,6 +2,8 @@ package salesman
 
 import java.io.{BufferedReader, InputStream, InputStreamReader}
 
+import scala.collection.mutable.ArrayBuffer
+
 object Main {
 
   case class Flight(from: String, to: String, day: Int, price: Int)
@@ -18,7 +20,7 @@ object Main {
     val firstLine = reader.readLine()
     val splittedLine = firstLine.split(" ")
     val n = splittedLine(0).toInt
-    val source = splittedLine(1)
+    val source = splittedLine(1).intern()
     (n, source)
   }
 
@@ -26,30 +28,31 @@ object Main {
     var cityToCitiesInArea = Map[String, List[String]]()
     for (i <- 1 to n) {
       val areaName = reader.readLine()
-      val airports = reader.readLine().split(" ").toList
+      val airports = reader.readLine().split(" ").toList.map(airport => airport.intern())
       for (airport <- airports) cityToCitiesInArea = cityToCitiesInArea + (airport -> airports)
     }
     cityToCitiesInArea
   }
 
-  def readFlights(totalDays: Int): List[Flight] = {
-    var flightDefinitions = List[Flight]()
+  def readFlights(totalDays: Int): Seq[Flight] = {
+    var flightDefinitions = ArrayBuffer[Flight]()
     var line = ""
     while ( {
       line = reader.readLine()
       line != null && line != ""
     }) {
       val flightLine = line.split(" ")
-      val from = flightLine(0)
-      val to = flightLine(1)
+      val from = flightLine(0).intern()
+      val to = flightLine(1).intern()
       val price = flightLine(3).toInt
       val day = flightLine(2).toInt
       if (day == 0) {
-        val flightForEveryDay = for (day <- List.range(1, totalDays + 1)) yield Flight(from, to, day, price)
-        flightDefinitions = flightForEveryDay ::: flightDefinitions
+        for (day <- 1 to totalDays) {
+          flightDefinitions.append(Flight(from, to, day, price))
+        }
       } else {
         val flight = Flight(from, to, day, price)
-        flightDefinitions = flight :: flightDefinitions
+        flightDefinitions.append(flight)
       }
     }
     flightDefinitions
