@@ -3,10 +3,10 @@ package evaluator
 import java.io.FileInputStream
 
 // COMMENT / UNCOMMENT TO SWITCH SOLUTIONS
-import salesman.Main.{Flight, Problem}
-import salesman.Main
+//import salesman.Main.{Flight, Problem}
+//import salesman.Main
 
-//import superman.{Main, Flight, Problem}
+import superman.{Main, Flight, Problem}
 
 object Evaluator {
 
@@ -27,7 +27,7 @@ object Evaluator {
     val calculationPhase = System.currentTimeMillis
     println("calculation phase: " + (calculationPhase - readingPhase) + " ms")
     println("total time: " + (calculationPhase - start) + " ms")
-    Validator.check(problem, solution)
+    println(Validator.check(problem, solution))
     println()
   }
 }
