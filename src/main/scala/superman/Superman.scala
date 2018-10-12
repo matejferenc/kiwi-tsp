@@ -92,7 +92,7 @@ object Main extends App {
 
   def writeSolution(solution: List[Flight]): Unit = {
     println(solution.foldLeft(0)((subTotalCost, flight) => subTotalCost + flight.price))
-    solution.foreach(flight => println(flight.from, flight.to, flight.price, flight.day))
+    solution.foreach(flight => println(flight.toOutputString))
   }
 
 }

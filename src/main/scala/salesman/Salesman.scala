@@ -6,7 +6,9 @@ import scala.collection.mutable.ArrayBuffer
 
 object Main {
 
-  case class Flight(from: String, to: String, day: Int, price: Int)
+  case class Flight(from: String, to: String, day: Int, price: Int) {
+    def toOutputString: String = List(from, to, day, price).mkString(" ")
+  }
   type FlightMap = Map[(Int, String), Seq[Flight]]
   case class Problem(areaCount: Int, start: String, areas: Map[String, Seq[String]], flights: FlightMap)
   
@@ -73,7 +75,7 @@ object Main {
   
   def writeSolution(solution: List[Flight]): Unit = {
     println(solution.foldLeft(0)((subTotalCost, flight) => subTotalCost + flight.price))
-    solution.foreach(flight => println(flight.from, flight.to, flight.price, flight.day))
+    solution.foreach(flight => println(flight.toOutputString))
   }
   
   def solve(problem: Problem): List[Flight] = {
