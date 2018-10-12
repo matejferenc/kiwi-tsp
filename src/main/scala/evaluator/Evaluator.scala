@@ -29,6 +29,7 @@ object Evaluator {
     println("total time: " + (calculationPhase - start) + " ms")
     println(Validator.check(problem, solution))
     println()
+//    Main.writeSolution(solution)
   }
 }
 
@@ -36,7 +37,7 @@ object Validator {
   def check(problem: Problem, solution: List[Flight]): List[String] = {
 
     def firstAirport = if (solution.head.from != problem.start) Some("Solution should start at given airport") else None
-    def lastAirPort = if (problem.areas(problem.start).contains(solution.last.to)) Some("Solution should end at given area") else None
+    def lastAirPort = if (!problem.areas(problem.start).contains(solution.last.to)) Some("Solution should end at given area") else None
     def numberOfFlights = if (solution.size != problem.areaCount) Some("Wrong number of flights") else None
     def continuity = if (!solution.map(_.to).zip(solution.tail.map(_.from)).forall { case (to, from) => to == from })
       Some("Arrival and departure should be always from same city")

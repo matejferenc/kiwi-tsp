@@ -87,10 +87,11 @@ object Main {
                             ): List[Flight] = {
     def nearestNeighbor(day: Int, visitedAirports: Set[String], currentAirport: String, path: List[Flight]): List[Flight] = {
       val lastDay = day == numberOfAreas
+      val airportsVisitedAfterThisFlight = visitedAirports ++ sameAreaAirportsByAirport(currentAirport)
       val destinationAirportsFilter: Flight => Boolean = if (lastDay) {
-        flight: Flight => flight.to == startAirport
+        flight: Flight => sameAreaAirportsByAirport(startAirport).contains(flight.to)
       } else {
-        flight: Flight => !visitedAirports.contains(flight.to)
+        flight: Flight => !airportsVisitedAfterThisFlight.contains(flight.to)
       }
       val availableFlights = flightsPerDayAndAirport((day, currentAirport))
         .filter(destinationAirportsFilter)
@@ -102,8 +103,6 @@ object Main {
           Nil
         }
       } else {
-        val airportsVisitedAfterThisFlight = visitedAirports ++ sameAreaAirportsByAirport(currentAirport)
-
         availableFlights.toStream
           .map(flight => nearestNeighbor(day + 1, airportsVisitedAfterThisFlight, flight.to, flight :: path))
           .find(_.nonEmpty)
