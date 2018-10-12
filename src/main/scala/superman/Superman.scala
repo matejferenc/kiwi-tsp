@@ -2,28 +2,22 @@ package superman
 
 import java.io.InputStream
 
-import superman.Flights.FlightMap
+import Flights.FlightMap
 
 import scala.collection.mutable
+
 
 case class Problem(areaCount: Int, start: String, areas: mutable.Map[String, Seq[String]], flights: FlightMap)
 
 case class Flight(from: String, to: String, day: Int, price: Int) {
-  lazy val key = (day, from)
+  def key = (day, from)
   def toOutputString = List(from, to, day, price).mkString(" ")
 }
 
 object Flights {
   type FlightMap = Map[(Int, String), Seq[Flight]]
-  def fromList(maxDays: Int, flights: Seq[Flight]): FlightMap = {
-    val (specific, general) = flights.partition(_.day != 0)
-
-    val generalPerDay = for {
-      flight <- general
-      day <- 1 to maxDays
-    } yield flight.copy(day = day)
-
-    (generalPerDay ++ specific)
+  def fromList(flights: Seq[Flight]): FlightMap = {
+    flights
       .groupBy(_.key)
       .mapValues(_.sortBy(_.price))
       .withDefaultValue(Seq.empty)
@@ -42,7 +36,7 @@ object Problem {
     val areas = mutable.Map[String, Seq[String]]()
     for (i <- 0 until areaCount) {
       val areaName = buffer.readLine() // not really necessary for anything
-      val airports = buffer.readLine().split(" ").toSeq
+      val airports = buffer.readLine().split(" ").toSeq.map(_.intern())
       for (airport <- airports) areas(airport) = airports
     }
 
@@ -52,13 +46,18 @@ object Problem {
       val trimmed = line.trim()
       if (trimmed.nonEmpty) {
         val split = trimmed.split(" ")
-        val flight = Flight(split(0).intern(), split(1).intern(), split(2).toInt, split(3).toInt)
-        flights.append(flight)
+        val from = split(0).intern()
+        val to = split(1).intern()
+        val day = split(2).toInt
+        val price = split(3).toInt
+
+        if (day == 0) (1 to areaCount).foreach(day => flights.append(Flight(from, to, day, price)))
+        else flights.append(Flight(from, to, day, price))
       }
       line = buffer.readLine()
     }
 
-    Problem(areaCount, start, areas, Flights.fromList(areaCount, flights))
+    Problem(areaCount, start, areas, Flights.fromList(flights))
   }
 }
 
@@ -91,8 +90,9 @@ object Main extends App {
   }
 
   def writeSolution(solution: List[Flight]): Unit = {
-    println(solution.foldLeft(0)((subTotalCost, flight) => subTotalCost + flight.price))
+    println(solution.map(_.price).sum)
     solution.foreach(flight => println(flight.toOutputString))
   }
 
+  writeSolution(solve(processInput(System.in)))
 }
