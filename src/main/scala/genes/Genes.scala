@@ -7,8 +7,12 @@ import Flights.FlightMap
 import scala.collection.{immutable, mutable}
 import scala.util.Random
 
-// Tries to solve the problem by separating it into chunks of smaller problems and combine solutions together.
-// Does not work because of dead-end airports (like ZYL in 2.in).
+//Submission details #6716
+//ID	Result	Score	Time	Memory
+//#1	accepted	93.19	2.18s	324096KB
+//#6	accepted	118.69	4.31s	323776KB
+//#11	accepted	102.29	14.6s	324800KB
+//#14	accepted	106.5	14.63s	323520KB
 
 case class Problem(areaCount: Int, start: String, areas: mutable.Map[String, Seq[String]], flights: FlightMap) {
   lazy val startArea = areas(start).toSet
@@ -71,11 +75,28 @@ object Problem {
 
 object Main extends App {
 
+  class Timeout(startTs: Long, airports: Int, areas: Int) {
+    val Gap = 500
+
+    val timeoutMs = (if (areas <= 20 && airports < 50) 3000
+      else if (areas <= 100 && areas < 100) 5000
+      else 15000) - Gap
+
+    def shouldTerminate() = (System.currentTimeMillis() - startTs) >= timeoutMs
+  }
+
+  class TimeoutException extends Exception
+
   implicit class RichPath(path: List[Flight]) {
     def price = path.map(_.price).sum
   }
 
-  def processInput(in: InputStream): Problem = Problem.fromInputStream(in)
+  var startTs: Long = _
+
+  def processInput(in: InputStream): Problem = {
+    startTs = System.currentTimeMillis()
+    Problem.fromInputStream(in)
+  }
 
   def solve(problem: Problem): List[Flight] = {
 
@@ -85,6 +106,8 @@ object Main extends App {
       flightBackHome || notYetVisited
     }
 
+    val timeout = new Timeout(startTs, problem.areas.keys.size, problem.areaCount)
+
     var counter = 0
     var skipped = 0
     val MaxCounter = problem.areas.size * 2
@@ -93,7 +116,7 @@ object Main extends App {
       counter += 1
       if (counter > MaxCounter) {
         skipped += 1
-        Nil
+        throw new TimeoutException
       } else if (problem.finalDay(day)) path
       else {
         val newVisitedAirports = visitedAirports ++ problem.areas(currentAirport)
@@ -111,10 +134,9 @@ object Main extends App {
 
     val r = new Random(problem.hashCode)
 
-    val Cycles = 10
     val GenerationSize = 100
     val GenerationWinners = 5
-    val NextGenMultiplier = 20
+    val NextGenMultiplier = 5
     val MutationChance = 0.05
 
     def generateSkip = {
@@ -141,11 +163,15 @@ object Main extends App {
 
     var solutions: immutable.IndexedSeq[(Map[String, Int], List[Flight])] = immutable.IndexedSeq.empty
 
-    for (i <- 0 until Cycles) {
+    while (!timeout.shouldTerminate()) {
 
       solutions = generation.map { instance =>
         counter = 0
-        val solution = findSolution(1, Set(), problem.start, Nil, instance).reverse
+        val solution = try {
+          findSolution(1, Set(), problem.start, Nil, instance).reverse
+        } catch {
+          case e: TimeoutException => Nil
+        }
         (instance, solution)
       }.filter(_._2.nonEmpty)
 
@@ -161,7 +187,7 @@ object Main extends App {
       generation = shuffles ++ winners
     }
 
-    println(s"$skipped paths skipped")
+    //println(s"$skipped paths skipped")
 
     solutions.map(_._2).sortBy(_.price).head
   }
