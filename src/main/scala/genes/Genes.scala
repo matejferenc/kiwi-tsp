@@ -4,15 +4,16 @@ import java.io.InputStream
 
 import Flights.FlightMap
 
-import scala.collection.{immutable, mutable}
+import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable
 import scala.util.Random
 
-//Submission details #6716
+//Submission details #6737
 //ID	Result	Score	Time	Memory
-//#1	accepted	93.19	2.18s	324096KB
-//#6	accepted	118.69	4.31s	323776KB
-//#11	accepted	102.29	14.6s	324800KB
-//#14	accepted	106.5	14.63s	323520KB
+//#1	accepted	93.5	2.85s	324096KB
+//#6	accepted	115.89	4.86s	323776KB
+//#11	accepted	104.98	14.84s	323776KB
+//#14	accepted	104.93	14.86s	323520KB
 
 case class Problem(areaCount: Int, start: String, areas: mutable.Map[String, Seq[String]], flights: FlightMap) {
   lazy val startArea = areas(start).toSet
@@ -76,7 +77,7 @@ object Problem {
 object Main extends App {
 
   class Timeout(startTs: Long, airports: Int, areas: Int) {
-    val Gap = 500
+    val Gap = 300
 
     val timeoutMs = (if (areas <= 20 && airports < 50) 3000
       else if (areas <= 100 && areas < 100) 5000
@@ -134,9 +135,8 @@ object Main extends App {
 
     val r = new Random(problem.hashCode)
 
-    val GenerationSize = 100
-    val GenerationWinners = 5
-    val NextGenMultiplier = 5
+    val GenerationSize = 200
+    val GenerationWinners = 15
     val MutationChance = 0.05
 
     def generateSkip = {
@@ -161,35 +161,42 @@ object Main extends App {
         .toMap
     } ++ Map().withDefaultValue(0)
 
-    var solutions: immutable.IndexedSeq[(Map[String, Int], List[Flight])] = immutable.IndexedSeq.empty
+    var allWinners = ArrayBuffer[List[Flight]]()
 
-    while (!timeout.shouldTerminate()) {
+    try {
+      while (!timeout.shouldTerminate()) {
 
-      solutions = generation.map { instance =>
-        counter = 0
-        val solution = try {
-          findSolution(1, Set(), problem.start, Nil, instance).reverse
-        } catch {
-          case e: TimeoutException => Nil
-        }
-        (instance, solution)
-      }.filter(_._2.nonEmpty)
+        val solutions = generation.map { instance =>
+          if (timeout.shouldTerminate()) throw new TimeoutException
+          counter = 0
+          val solution = try {
+            findSolution(1, Set(), problem.start, Nil, instance).reverse
+          } catch {
+            case e: TimeoutException => Nil
+          }
+          (instance, solution)
+        }.filter(_._2.nonEmpty)
 
-      val winners = solutions.sortBy(_._2.price).take(GenerationWinners).map(_._1)
+        val winners = solutions.sortBy(_._2.price).take(GenerationWinners)
+        val winnerInstances = winners.map(_._1)
 
-      val shuffles = for {
-        a <- winners
-        b <- winners
-        if (a != b)
-        n <- 0 until NextGenMultiplier
-      } yield shuffle(a, b)
+        allWinners.append(winners.map(_._2): _*)
 
-      generation = shuffles ++ winners
+        val shuffles = for {
+          a <- winnerInstances
+          b <- winnerInstances
+          if (a != b)
+        } yield shuffle(a, b)
+
+        generation = shuffles
+      }
+    } catch {
+      case e: TimeoutException => Nil
     }
 
     //println(s"$skipped paths skipped")
 
-    solutions.map(_._2).sortBy(_.price).head
+    allWinners.sortBy(_.price).head
   }
 
   def writeSolution(solution: List[Flight]): Unit = {
