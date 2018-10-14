@@ -8,7 +8,11 @@ import java.io.FileInputStream
 
 //import superman.{Main, Flight, Problem}
 
-import randomman.{Main, Flight, Problem}
+//import randomman.{Main, Flight, Problem}
+
+//import splitter.{Main, Flight, Problem}
+
+import genes.{Main, Flight, Problem}
 
 object Evaluator {
 
