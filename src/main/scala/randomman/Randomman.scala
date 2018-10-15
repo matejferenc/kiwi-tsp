@@ -1,17 +1,18 @@
-package superman
+package randomman
 
 import java.io.InputStream
 
 import Flights.FlightMap
 
 import scala.collection.mutable
+import scala.util.Random
 
-//Submission details #6256
+//Submission details #6337
 //ID	Result	Score	Time	Memory
-//#1	accepted	26.5	0.35s	322496KB
-//#6	accepted	88.16	1.22s	322624KB
-//#11	accepted	99.34	2.99s	322624KB
-//#14	accepted	94.33	5.98s	322560KB
+//#1	accepted	93.19	0.47s	322624KB
+//#6	accepted	105.06	4.25s	322752KB
+//#11	accepted	101.87	7.3s	322752KB
+//#14	accepted	104.35	10.35s	322560KB
 
 case class Problem(areaCount: Int, start: String, areas: mutable.Map[String, Seq[String]], flights: FlightMap) {
   lazy val startArea = areas(start).toSet
@@ -72,9 +73,13 @@ object Problem {
 object Main extends App {
   def processInput(in: InputStream): Problem = Problem.fromInputStream(in)
 
+
   def solve(problem: Problem): List[Flight] = {
+
+    val r = new Random(problem.hashCode)
+
     // finds first acceptable solution, searching lowest cost flights first
-    def bruteForce(day: Int, visitedAirports: Set[String], currentAirport: String, path: List[Flight]): List[Flight] = {
+    def bruteForce(day: Int, visitedAirports: Set[String], currentAirport: String, path: List[Flight], skipP: Double): List[Flight] = {
       val lastFlight = day == problem.areaCount
       val lastDay = day > problem.areaCount
 
@@ -88,13 +93,23 @@ object Main extends App {
         val outboundFlights = problem.flights((day, currentAirport))
         outboundFlights.toStream
           .filter(eligibleFlight)
-          .map(flight => bruteForce(newDay, newVisitedAirports, flight.to, flight :: path))
+          .filter(_ => r.nextDouble() >= skipP)
+          .map(flight => bruteForce(newDay, newVisitedAirports, flight.to, flight :: path, skipP))
           .find(_.nonEmpty)
           .getOrElse(Nil)
       }
     }
 
-    bruteForce(1, Set(), problem.start, Nil).reverse
+    val SkipProbability = 0.01
+    val Rounds = 500
+
+    val result = (0 until Rounds).toStream
+      .map(_ => bruteForce(1, Set(), problem.start, Nil, SkipProbability).reverse)
+      .filter(_.nonEmpty)
+      .minBy(_.map(_.price).sum)
+
+    if (result.isEmpty) bruteForce(1, Set(), problem.start, Nil, 0).reverse
+    else result
   }
 
   def writeSolution(solution: List[Flight]): Unit = {

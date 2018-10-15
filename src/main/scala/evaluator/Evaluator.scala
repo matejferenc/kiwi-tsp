@@ -7,6 +7,12 @@ import salesman.{Main, Flight, Problem}
 
 //import superman.{Main, Flight, Problem}
 
+//import randomman.{Main, Flight, Problem}
+
+//import splitter.{Main, Flight, Problem}
+
+//import genes.{Main, Flight, Problem}
+
 object Evaluator {
 
   def main(args: Array[String]): Unit = {
@@ -27,6 +33,7 @@ object Evaluator {
     println("calculation phase: " + (calculationPhase - readingPhase) + " ms")
     println("total time: " + (calculationPhase - start) + " ms")
     println(Validator.check(problem, solution))
+    println(s"Price: ${solution.map(_.price).sum}")
     println()
 //    Main.writeSolution(solution)
   }
