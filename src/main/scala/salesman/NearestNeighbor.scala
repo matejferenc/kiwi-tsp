@@ -3,15 +3,17 @@ package salesman
 import java.io.{BufferedReader, InputStream, InputStreamReader}
 
 import scala.collection.mutable.ArrayBuffer
+import Main.FlightMap
+
+case class Flight(from: String, to: String, day: Int, price: Int) {
+  def toOutputString: String = List(from, to, day, price).mkString(" ")
+}
+case class Problem(areaCount: Int, start: String, areas: Map[String, Seq[String]], flights: FlightMap)
+
 
 object Main {
-
-  case class Flight(from: String, to: String, day: Int, price: Int) {
-    def toOutputString: String = List(from, to, day, price).mkString(" ")
-  }
   type FlightMap = Map[(Int, String), Seq[Flight]]
-  case class Problem(areaCount: Int, start: String, areas: Map[String, Seq[String]], flights: FlightMap)
-  
+
   var reader: BufferedReader = _
 
   def main(args: Array[String]): Unit = {
