@@ -3,7 +3,9 @@ package evaluator
 import java.io.FileInputStream
 
 // COMMENT / UNCOMMENT TO SWITCH SOLUTIONS
-import salesman.{Main, Flight, Problem}
+//import nearest-neighbor.{Main, Flight, Problem}
+
+import greedyman.{Main, Flight, Problem}
 
 //import superman.{Main, Flight, Problem}
 
@@ -17,11 +19,11 @@ object Evaluator {
 
   def main(args: Array[String]): Unit = {
     for (i <- 0 to 4) {
-      evaluateTestCase(i)
+      runTestCase(i)
     }
   }
 
-  def evaluateTestCase(number: Int): Unit = {
+  def runTestCase(number: Int): Unit = {
     println(s"evaluating dataset $number")
     val inputStream = new FileInputStream(getClass.getResource(s"/$number.in").getPath)
     val start = System.currentTimeMillis
@@ -36,6 +38,14 @@ object Evaluator {
     println(s"Price: ${solution.map(_.price).sum}")
     println()
 //    Main.writeSolution(solution)
+  }
+
+  def evaluateTestCase(number: Int): Unit = {
+    val inputStream = new FileInputStream(getClass.getResource(s"/$number.in").getPath)
+    val problem = Main.processInput(inputStream)
+    val solution = Main.solve(problem)
+    if (Validator.check(problem, solution).nonEmpty) throw new IllegalStateException("validation did not pass")
+    println(solution.map(_.price).sum)
   }
 }
 
