@@ -3,12 +3,12 @@ package greedyman
 import java.io.{BufferedReader, InputStream, InputStreamReader}
 
 import scala.collection.mutable.ArrayBuffer
+import Main.FlightMap
 
 case class Flight(from: String, to: String, day: Int, price: Int) {
   def toOutputString: String = List(from, to, day, price).mkString(" ")
 }
-
-case class Problem(areaCount: Int, start: String, areas: Map[String, Seq[String]], flights: Seq[Flight])
+case class Problem(areaCount: Int, start: String, areas: Map[String, Seq[String]], flights: FlightMap)
 
 object Main {
   type FlightMap = Map[(Int, String), Seq[Flight]]
@@ -66,10 +66,12 @@ object Main {
     val (numberOfAreas, sourceAirport) = readHeader()
     val areas = readAreasWithCities(numberOfAreas)
     val flightDefinitions = readFlights(numberOfAreas)
-    val flights = flightDefinitions
-      .filterNot(flight => flight.day == 1 && flight.from != sourceAirport)
-      .sortBy(_.price)
-    Problem(numberOfAreas, sourceAirport, areas, flights)
+    val flightsPerDayAndAirport = flightDefinitions
+      .groupBy(flight => (flight.day, flight.from))
+      .map(element => element._1 -> element._2.sortBy(_.price))
+      .withDefaultValue(Nil)
+      .asInstanceOf[FlightMap]
+    Problem(numberOfAreas, sourceAirport, areas, flightsPerDayAndAirport)
   }
 
   def writeSolution(solution: List[Flight]): Unit = {
@@ -78,22 +80,29 @@ object Main {
   }
 
   def solve(problem: Problem): List[Flight] = {
-    wrapper(problem.start, problem.areaCount, problem.areas, problem.flights)
+    val orderedFlights = problem.flights.flatMap(record => record._2)
+      .toList
+      .filterNot(flight => flight.day == 1 && flight.from != problem.start)
+      .sortBy(_.price)
+    val flightsBook = orderedFlights.groupBy(flight => (flight.day, flight.from, flight.to)).withDefaultValue(Nil)
+    wrapper(problem.start, problem.areaCount, problem.areas, orderedFlights, flightsBook)
   }
 
   def wrapper(startAirport: String,
               numberOfAreas: Int,
               areas: Map[String, Seq[String]],
-              flights: Seq[Flight]
+              flights: Seq[Flight],
+              flightsBook: Map[(Int, String, String), Seq[Flight]]
              ): List[Flight] = {
     def calculate(flewFrom: Map[Int, String], arrivedTo: Map[Int, String], path: List[Flight], flewFromSet: Set[String], arrivedToSet: Set[String]): List[Flight] = {
       val lastDay = path.length == numberOfAreas - 1
       val destinationAirportsFilter: Flight => Boolean = {
-        flight: Flight => if (flight.day == numberOfAreas) {
-          areas(startAirport).contains(flight.to)
-        } else {
-          !arrivedToSet.contains(flight.to)
-        }
+        flight: Flight =>
+          if (flight.day == numberOfAreas) {
+            areas(startAirport).contains(flight.to)
+          } else {
+            !arrivedToSet.contains(flight.to)
+          }
       }
       val sourceAirportsFilter: Flight => Boolean = {
         flight: Flight => !flewFromSet.contains(flight.from)
@@ -117,14 +126,14 @@ object Main {
         .filter(filterForYesterdayFlightContinuity) // flight to destination where I fly from tomorrow
         .filter(filterForTomorrowFlightContinuity) // flight from destination where I flew from yesterday
 
-      println("0: " + path)
-//      println("1: " + flights.filter(flight => !flewFrom.keys.exists(_ == flight.day)))
-//      println("2: " + flights.filter(filterForYesterdayFlightContinuity))
-//      println("3: " + flights.filter(filterForTomorrowFlightContinuity))
-//      println("4: " + flights.filter(destinationAirportsFilter))
-//      println("5: " + flights.filter(sourceAirportsFilter))
-//      println("6: " + availableFlights)
-//      println("-------")
+      //      println("0: " + path)
+      //      println("1: " + flights.filter(flight => !flewFrom.keys.exists(_ == flight.day)))
+      //      println("2: " + flights.filter(filterForYesterdayFlightContinuity))
+      //      println("3: " + flights.filter(filterForTomorrowFlightContinuity))
+      //      println("4: " + flights.filter(destinationAirportsFilter))
+      //      println("5: " + flights.filter(sourceAirportsFilter))
+      //      println("6: " + availableFlights)
+      //      println("-------")
 
       if (lastDay) {
         if (availableFlights.nonEmpty) {
@@ -134,7 +143,39 @@ object Main {
         }
       } else {
         availableFlights.toStream
-          .map(flight => calculate(flewFrom + (flight.day -> flight.from), arrivedTo + (flight.day -> flight.to), flight :: path, flewFromSet ++ areas(flight.from), arrivedToSet ++ areas(flight.to)))
+          .map(flight => {
+            val newFlewFrom = flewFrom + (flight.day -> flight.from)
+            val newArrivedTo = arrivedTo + (flight.day -> flight.to)
+            val newPath = flight :: path
+            val newFlewFromSet = flewFromSet ++ areas(flight.from)
+            val newArrivedToSet = arrivedToSet ++ areas(flight.to)
+            
+            if (flewFrom.isDefinedAt(flight.day + 2) && !flewFrom.isDefinedAt(flight.day + 1)) {
+              flightsBook((flight.day + 1, flight.to, flewFrom(flight.day + 2)))
+                .sortBy(_.price)
+                .headOption
+                .map(betweenFlight => calculate(newFlewFrom + (betweenFlight.day -> betweenFlight.from),
+                  newArrivedTo + (betweenFlight.day -> betweenFlight.to),
+                  betweenFlight :: newPath,
+                  newFlewFromSet ++ areas(betweenFlight.from),
+                  newArrivedToSet ++ areas(betweenFlight.to)
+                ))
+                .getOrElse(Nil)
+            } else if (arrivedTo.isDefinedAt(flight.day - 2) && !arrivedTo.isDefinedAt(flight.day - 1)) {
+              flightsBook((flight.day - 1, arrivedTo(flight.day - 2), flight.from))
+                .sortBy(_.price)
+                .headOption
+                .map(betweenFlight => calculate(newFlewFrom + (betweenFlight.day -> betweenFlight.from),
+                  newArrivedTo + (betweenFlight.day -> betweenFlight.to),
+                  betweenFlight :: newPath,
+                  newFlewFromSet ++ areas(betweenFlight.from),
+                  newArrivedToSet ++ areas(betweenFlight.to)
+                ))
+                .getOrElse(Nil)
+            } else {
+              calculate(newFlewFrom, newArrivedTo, newPath, newFlewFromSet, newArrivedToSet)
+            }
+          })
           .find(_.nonEmpty)
           .getOrElse(Nil)
       }

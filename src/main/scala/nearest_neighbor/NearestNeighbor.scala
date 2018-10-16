@@ -1,4 +1,4 @@
-package salesman
+package nearest_neighbor
 
 import java.io.{BufferedReader, InputStream, InputStreamReader}
 
@@ -9,7 +9,6 @@ case class Flight(from: String, to: String, day: Int, price: Int) {
   def toOutputString: String = List(from, to, day, price).mkString(" ")
 }
 case class Problem(areaCount: Int, start: String, areas: Map[String, Seq[String]], flights: FlightMap)
-
 
 object Main {
   type FlightMap = Map[(Int, String), Seq[Flight]]
