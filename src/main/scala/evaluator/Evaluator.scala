@@ -54,9 +54,12 @@ object Evaluator {
     val inputStream = new FileInputStream(getClass.getResource(s"/$number.in").getPath)
     val problem = Main.processInput(inputStream)
     val subOptimalSolution = Main.solve(problem)
-    val solution = Optimizer.optimize(problem, subOptimalSolution.to[collection.mutable.ArrayBuffer]).toList
+    val start = System.currentTimeMillis
+    val solution = TotalOptimizer.optimize(problem, subOptimalSolution)
+    val end = System.currentTimeMillis
+    println("optimization time: " + (end - start) + " ms")
     if (Validator.check(problem, solution).nonEmpty) throw new IllegalStateException("validation did not pass")
-    println(solution.map(_.price).sum)
+    println(s"${subOptimalSolution.map(_.price).sum} : ${solution.map(_.price).sum}")
   }
 }
 
@@ -82,8 +85,8 @@ object Validator {
   }
 }
 
-object Optimizer {
-  def optimize(problem: Problem, solution: ArrayBuffer[Flight]): ArrayBuffer[Flight] = {
+object InAreaOptimizer {
+  def optimize(problem: Problem, solution: List[Flight]): List[Flight] = {
     var optimized = true
     var optimizedSolution = solution
     while (optimized) {
@@ -94,9 +97,9 @@ object Optimizer {
     optimizedSolution
   }
   
-  def optimizeOnce(problem: Problem, solution: ArrayBuffer[Flight]): (Boolean, ArrayBuffer[Flight]) = {
+  def optimizeOnce(problem: Problem, solution: List[Flight]): (Boolean, List[Flight]) = {
     val solutionPrice = solution.map(_.price).sum
-    var betterSolution = solution.clone()
+    val betterSolution = solution.to[collection.mutable.ArrayBuffer]
     var betterPrice = solutionPrice
     var optimizedDay = 1
     while (betterPrice >= solutionPrice && optimizedDay < problem.areaCount) {
@@ -123,6 +126,79 @@ object Optimizer {
         })
       optimizedDay = optimizedDay + 1
     }
-    (betterPrice < solutionPrice, betterSolution)
+    (betterPrice < solutionPrice, betterSolution.toList)
+  }
+}
+
+object TotalOptimizer {
+  def optimize(problem: Problem, solution: List[Flight]): List[Flight] = {
+    var optimized = true
+    var optimizedSolution = solution
+    var previousPrice = solution.map(_.price).sum
+    while (optimized) {
+      val sol = NeighborAreaSwitchOptimizer.optimize(problem,
+        InAreaOptimizer.optimize(problem, optimizedSolution)
+      )
+      val currentPrice = sol.map(_.price).sum
+      optimized = currentPrice < previousPrice
+      previousPrice = currentPrice
+      optimizedSolution = sol
+    }
+    optimizedSolution
+  }
+}
+
+object NeighborAreaSwitchOptimizer {
+  def optimize(problem: Problem, solution: List[Flight]): List[Flight] = {
+    var optimized = true
+    var optimizedSolution = solution
+    while (optimized) {
+      val (o, s) = optimizeOnce(problem, optimizedSolution)
+      optimized = o
+      optimizedSolution = s
+    }
+    optimizedSolution
+  }
+  
+  def optimizeOnce(problem: Problem, solution: List[Flight]): (Boolean, List[Flight]) = {
+    var day = 1
+    val currentPrice = solution.map(_.price).sum
+    var optimizedPrice = currentPrice
+    val betterSolution = solution.to[collection.mutable.ArrayBuffer]
+    while (day < problem.areaCount - 1 && optimizedPrice >= currentPrice) {
+      val firstFlightIndex = day - 1
+      val secondFlightIndex = day
+      val thirdFlightIndex = day + 1
+      val firstFlight = solution(firstFlightIndex)
+      val secondFlight = solution(secondFlightIndex)
+      val thirdFlight = solution(thirdFlightIndex)
+      val pricePer3Flights = firstFlight.price + secondFlight.price + thirdFlight.price
+      val from = firstFlight.from
+      val mid1Area = problem.areas(secondFlight.to)
+      val mid2Area = problem.areas(secondFlight.from)
+      val to = solution(thirdFlightIndex).to
+      problem.flights((day, from))
+        .filter(f => mid1Area.contains(f.to))
+        .flatMap(f1 => {
+          problem.flights((day + 1, f1.to))
+            .filter(f => mid2Area.contains(f.to))
+            .flatMap(f2 => {
+              problem.flights(day + 2, f2.to)
+                .filter(_.to == to)
+                .map(f3 => {
+                  (f1, f2, f3)
+                })
+            })
+        })
+        .find(betterFlights => pricePer3Flights > (betterFlights._1.price + betterFlights._2.price + betterFlights._3.price))
+        .foreach(betterFlights => {
+          betterSolution(day - 1) = betterFlights._1
+          betterSolution(day) = betterFlights._2
+          betterSolution(day + 1) = betterFlights._3
+          optimizedPrice = currentPrice - pricePer3Flights + betterFlights._1.price + betterFlights._2.price + betterFlights._3.price
+        })
+      day = day + 1
+    }
+    (optimizedPrice < currentPrice, betterSolution.toList)
   }
 }
