@@ -27,8 +27,8 @@ case class Flight(from: String, to: String, day: Int, price: Int) {
 }
 
 object Flights {
-  type FlightMap = Map[String, Seq[Flight]]
-  def key(day: Int, from: String) = day + from
+  type FlightMap = Map[(Int, String), Seq[Flight]]
+  def key(day: Int, from: String) = (day, from)
   def fromList(flights: Seq[Flight]): FlightMap = {
     flights
       .groupBy(_.key)
