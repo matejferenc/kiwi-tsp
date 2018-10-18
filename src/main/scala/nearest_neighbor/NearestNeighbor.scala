@@ -16,7 +16,8 @@ object Main {
   var reader: BufferedReader = _
 
   def main(args: Array[String]): Unit = {
-    writeSolution(solve(processInput(System.in)))
+    val problem = processInput(System.in)
+    writeSolution(optimize(problem, solve(problem)))
   }
 
   def readHeader(): (Int, String) = {
@@ -72,6 +73,10 @@ object Main {
       .withDefaultValue(Nil)
       .asInstanceOf[FlightMap]
     Problem(numberOfAreas, sourceAirport, sameAreaAirportsByAirport, flightsPerDayAndAirport)
+  }
+
+  def optimize(problem: Problem, solution: List[Flight]): List[Flight] = {
+    solution
   }
   
   def writeSolution(solution: List[Flight]): Unit = {

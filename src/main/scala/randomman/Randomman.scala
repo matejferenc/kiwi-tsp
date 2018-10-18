@@ -112,10 +112,15 @@ object Main extends App {
     else result
   }
 
+  def optimize(problem: Problem, solution: List[Flight]): List[Flight] = {
+    solution
+  }
+
   def writeSolution(solution: List[Flight]): Unit = {
     println(solution.map(_.price).sum)
     solution.foreach(flight => println(flight.toOutputString))
   }
 
-  writeSolution(solve(processInput(System.in)))
+  val problem = processInput(System.in)
+  writeSolution(optimize(problem, solve(problem)))
 }

@@ -21,7 +21,7 @@ object Evaluator {
 
   def main(args: Array[String]): Unit = {
     for (i <- 0 to 4) {
-      optimizeTestCase(i)
+      runTestCase(i)
     }
   }
 
@@ -32,10 +32,13 @@ object Evaluator {
     val problem = Main.processInput(inputStream)
     val readingPhase = System.currentTimeMillis
     println("reading phase: " + (readingPhase - start) + " ms")
-    val solution = Main.solve(problem)
+    val subOptimalSolution = Main.solve(problem)
     val calculationPhase = System.currentTimeMillis
-    println("calculation phase: " + (calculationPhase - readingPhase) + " ms")
-    println("total time: " + (calculationPhase - start) + " ms")
+    println("solving phase: " + (calculationPhase - readingPhase) + " ms")
+    val solution = Main.optimize(problem, subOptimalSolution)
+    val optimizationPhase = System.currentTimeMillis
+    println("optimization phase: " + (optimizationPhase - calculationPhase) + " ms")
+    println("total time: " + (optimizationPhase - start) + " ms")
     println(Validator.check(problem, solution))
     println(s"Price: ${solution.map(_.price).sum}")
     println()
@@ -55,10 +58,10 @@ object Evaluator {
     val problem = Main.processInput(inputStream)
     val subOptimalSolution = Main.solve(problem)
     val start = System.currentTimeMillis
-    val solution = TotalOptimizer.optimize(problem, subOptimalSolution)
+    val solution = TwoAreasSwitchOptimizer.optimize(problem, subOptimalSolution)
     val end = System.currentTimeMillis
     println("optimization time: " + (end - start) + " ms")
-    if (Validator.check(problem, solution).nonEmpty) throw new IllegalStateException("validation did not pass")
+    if (Validator.check(problem, solution).nonEmpty) throw new IllegalStateException(Validator.check(problem, solution) mkString "\n")
     println(s"${subOptimalSolution.map(_.price).sum} : ${solution.map(_.price).sum}")
   }
 }
@@ -136,9 +139,10 @@ object TotalOptimizer {
     var optimizedSolution = solution
     var previousPrice = solution.map(_.price).sum
     while (optimized) {
-      val sol = NeighborAreaSwitchOptimizer.optimize(problem,
-        InAreaOptimizer.optimize(problem, optimizedSolution)
-      )
+      val (_, s1) = TwoAreasSwitchOptimizer.optimizeOnce(problem, optimizedSolution)
+      val (_, s2) = InAreaOptimizer.optimizeOnce(problem, s1)
+      val (_, s3) = NeighborAreaSwitchOptimizer.optimizeOnce(problem, s2)
+      val sol = s3
       val currentPrice = sol.map(_.price).sum
       optimized = currentPrice < previousPrice
       previousPrice = currentPrice
@@ -200,5 +204,50 @@ object NeighborAreaSwitchOptimizer {
       day = day + 1
     }
     (optimizedPrice < currentPrice, betterSolution.toList)
+  }
+}
+
+object TwoAreasSwitchOptimizer {
+  def optimize(problem: Problem, solution: List[Flight]): List[Flight] = {
+    var optimized = true
+    var optimizedSolution = solution
+    while (optimized) {
+      val (o, s) = optimizeOnce(problem, optimizedSolution)
+      optimized = o
+      optimizedSolution = s
+    }
+    optimizedSolution
+  }
+  
+  def optimizeOnce(problem: Problem, solution: List[Flight]): (Boolean, List[Flight]) = {
+    val currentPrice = solution.map(_.price).sum
+    var optimizedPrice = currentPrice
+    val betterSolution = solution.to[collection.mutable.ArrayBuffer]
+    for {
+      dayA1 <- 1 to (problem.areaCount - 3)
+      dayA2 = dayA1 + 1
+      dayB3 <- (dayA2 + 1) to (problem.areaCount - 1)
+      dayB4 = dayB3 + 1
+      flight1 = solution(dayA1 - 1)
+      flight2 = solution(dayA2 - 1)
+      flight3 = solution(dayB3 - 1)
+      flight4 = solution(dayB4 - 1)
+      pricePer4Flights = flight1.price + flight2.price + flight3.price + flight4.price
+      substitute1 <- problem.flights((dayA1, flight1.from)).filter(s => s.to == flight3.to)
+      substitute4 <- problem.flights((dayA2, flight4.from)).filter(s => s.to == flight2.to)
+      substitute3 <- problem.flights((dayB3, flight3.from)).filter(s => s.to == flight1.to)
+      substitute2 <- problem.flights((dayB4, flight2.from)).filter(s => s.to == flight4.to)
+      if currentPrice <= optimizedPrice
+      pricePer4SubstituteFlights = substitute1.price + substitute2.price + substitute3.price + substitute4.price
+      if pricePer4SubstituteFlights < pricePer4Flights
+      _ = { optimizedPrice = currentPrice - pricePer4Flights + pricePer4SubstituteFlights }
+      _ = {
+        betterSolution(dayA1 - 1) = substitute1
+        betterSolution(dayA2 - 1) = substitute2
+        betterSolution(dayB3 - 1) = substitute3
+        betterSolution(dayB4 - 1) = substitute4
+      }
+    } yield null
+    (optimizedPrice < currentPrice, betterSolution.toList.sortBy(_.day))
   }
 }

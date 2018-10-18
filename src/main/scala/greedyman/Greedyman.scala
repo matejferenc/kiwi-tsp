@@ -16,7 +16,8 @@ object Main {
   var reader: BufferedReader = _
 
   def main(args: Array[String]): Unit = {
-    writeSolution(solve(processInput(System.in)))
+    val problem = processInput(System.in)
+    writeSolution(optimize(problem, solve(problem)))
   }
 
   def readHeader(): (Int, String) = {
@@ -86,6 +87,10 @@ object Main {
       .sortBy(_.price)
     val flightsBook = orderedFlights.groupBy(flight => (flight.day, flight.from, flight.to)).withDefaultValue(Nil)
     wrapper(problem.start, problem.areaCount, problem.areas, orderedFlights, flightsBook)
+  }
+
+  def optimize(problem: Problem, solution: List[Flight]): List[Flight] = {
+    solution
   }
 
   def wrapper(startAirport: String,
