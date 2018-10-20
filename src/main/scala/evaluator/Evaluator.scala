@@ -15,13 +15,16 @@ import scala.collection.mutable.ArrayBuffer
 
 //import splitter.{Main, Flight, Problem}
 
-import genes.{Main, Flight, Problem}
+//import genes.{Main, Flight, Problem}
+
+import genes2.{Main, Flight, Problem}
+
 
 object Evaluator {
 
   def main(args: Array[String]): Unit = {
     for (i <- 0 to 4) {
-      optimizeTestCase(i)
+      runTestCase(i)
     }
   }
 
@@ -46,7 +49,8 @@ object Evaluator {
     val inputStream = new FileInputStream(getClass.getResource(s"/$number.in").getPath)
     val problem = Main.processInput(inputStream)
     val solution = Main.solve(problem)
-    if (Validator.check(problem, solution).nonEmpty) throw new IllegalStateException("validation did not pass")
+    val checkResult = Validator.check(problem, solution)
+    if (checkResult.nonEmpty) println(s"VALIDATION ERROR: $checkResult")
     println(solution.map(_.price).sum)
   }
 
@@ -55,7 +59,8 @@ object Evaluator {
     val problem = Main.processInput(inputStream)
     val subOptimalSolution = Main.solve(problem)
     val solution = Optimizer.optimize(problem, subOptimalSolution.to[collection.mutable.ArrayBuffer]).toList
-    if (Validator.check(problem, solution).nonEmpty) throw new IllegalStateException("validation did not pass")
+    val checkResult = Validator.check(problem, solution)
+    if (checkResult.nonEmpty) println(s"VALIDATION ERROR: $checkResult")
     println(solution.map(_.price).sum)
   }
 }
