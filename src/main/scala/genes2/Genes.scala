@@ -146,7 +146,7 @@ object Main extends App {
     val areaNumbers: Seq[Int] = (2 until areas.size)
 
     def newGenome: Map[Int, String] = {
-      val size = (problem.areaCount / 100) + 1
+      val size = math.min((r.nextGaussian() / 50).toInt, 5)
       val airports = r.shuffle(areas).filter(_.toSet != problem.startArea).take(size).map(area => area(r.nextInt(area.size)))
       val days = r.shuffle(areaNumbers).take(size)
       days.zip(airports).toMap
@@ -182,7 +182,7 @@ object Main extends App {
 
       def evaluate(genome: Map[Int, String]) = {
         counter = 0
-        try findSolution(1, genome.values.toSet, problem.start, Nil, genome)
+        try findSolution(1, genome.values.flatMap(problem.areas).toSet, problem.start, Nil, genome)
         catch {
           case _: TimeoutException => Nil
         }
@@ -200,12 +200,14 @@ object Main extends App {
         }
       }
 
-      def pickMate = results((math.abs(r.nextGaussian()) * 10 / problem.areaCount).toInt)._1
-
-      generation = (1 to GenerationSize / 2).map(_ => breed(pickMate, pickMate)) ++ initialGeneration(GenerationSize / 2)
+      if (results.isEmpty) generation = initialGeneration(GenerationSize)
+      else {
+        def pickMate = results(math.min((math.abs(r.nextGaussian()) * 10 / problem.areaCount).toInt, results.size - 1))._1
+        generation = (1 to GenerationSize / 2).map(_ => breed(pickMate, pickMate)) ++ initialGeneration(GenerationSize / 2)
+      }
     }
 
-    println(bestSolution.reverse)
+    println(bestSolution.reverse.mkString("\n"))
     bestSolution.reverse
   }
 

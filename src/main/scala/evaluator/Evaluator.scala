@@ -17,7 +17,9 @@ import scala.collection.mutable.ArrayBuffer
 
 //import genes.{Main, Flight, Problem}
 
-import genes2.{Main, Flight, Problem}
+//import genes2.{Main, Flight, Problem}
+
+import genes3.{Main, Flight, Problem}
 
 
 object Evaluator {
