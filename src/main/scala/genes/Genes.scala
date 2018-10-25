@@ -4,8 +4,8 @@ import java.io.InputStream
 
 import Flights.FlightMap
 
-import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
 //Submission details #6737
@@ -74,19 +74,33 @@ object Problem {
   }
 }
 
-class Timeout(startTs: Long, airports: Int, areas: Int) {
-  val Gap = 300
+case class Timeout(startTs: Long, timeoutMs: Long) {
+  def shouldTerminate(): Boolean = (System.currentTimeMillis() - startTs) >= timeoutMs
+}
+object Timeout {
+  def solution(startTs: Long, airports: Int, areas: Int): Timeout = {
 
-  val timeoutMs = (if (areas <= 20 && airports < 50) 3000
+    val timeoutMs = if (areas <= 20 && airports < 50) 3000 - 500
+    else if (areas <= 100 && areas < 100) 5000 - 700
+    else 15000 - 1000
+    
+    Timeout(startTs, timeoutMs)
+  }
+  def optimization(startTs: Long, airports: Int, areas: Int): Timeout = {
+    val Gap = 300
+
+    val timeoutMs = (if (areas <= 20 && airports < 50) 3000
     else if (areas <= 100 && areas < 100) 5000
     else 15000) - Gap
 
-  def shouldTerminate() = (System.currentTimeMillis() - startTs) >= timeoutMs
+    Timeout(startTs, timeoutMs)
+  }
 }
+
+class TimeoutException extends Exception
 
 object Main extends App {
 
-  class TimeoutException extends Exception
 
   implicit class RichPath(path: List[Flight]) {
     def price = path.map(_.price).sum
@@ -100,14 +114,13 @@ object Main extends App {
   }
 
   def solve(problem: Problem): List[Flight] = {
+    val timeout = Timeout.solution(startTs, problem.areas.keys.size, problem.areaCount)
 
     def eligibleFlight(day: Int, visitedAirports: Set[String])(flight: Flight): Boolean = {
       val flightBackHome = problem.lastFlight(day) && problem.startArea.contains(flight.to)
       val notYetVisited = !visitedAirports.contains(flight.to)
       flightBackHome || notYetVisited
     }
-
-    val timeout = new Timeout(startTs, problem.areas.keys.size, problem.areaCount)
 
     var counter = 0
     var skipped = 0
@@ -185,7 +198,7 @@ object Main extends App {
         val shuffles = for {
           a <- winnerInstances
           b <- winnerInstances
-          if (a != b)
+          if a != b
         } yield shuffle(a, b)
 
         generation = shuffles
@@ -200,7 +213,8 @@ object Main extends App {
   }
 
   def optimize(problem: Problem, solution: List[Flight]): List[Flight] = {
-    TotalOptimizer.optimize(problem, solution)
+    val timeout = Timeout.optimization(startTs, problem.areas.keys.size, problem.areaCount)
+    TotalOptimizer.optimize(problem, solution, timeout)
   }
 
   def writeSolution(solution: List[Flight]): Unit = {
@@ -213,7 +227,7 @@ object Main extends App {
 }
 
 object InAreaOptimizer {
-  def optimize(problem: Problem, solution: List[Flight]): List[Flight] = {
+  def optimize(problem: Problem, solution: List[Flight], timeout: Timeout): List[Flight] = {
     var optimized = true
     var optimizedSolution = solution
     while (optimized) {
@@ -258,26 +272,32 @@ object InAreaOptimizer {
 }
 
 object TotalOptimizer {
-  def optimize(problem: Problem, solution: List[Flight]): List[Flight] = {
+  def optimize(problem: Problem, solution: List[Flight], timeout: Timeout): List[Flight] = {
     var optimized = true
     var optimizedSolution = solution
     var previousPrice = solution.map(_.price).sum
-    while (optimized) {
-      val s1 = TwoAreasSwitchOptimizer.optimize(problem, optimizedSolution)
-      val s2 = InAreaOptimizer.optimize(problem, s1)
-      val s3 = NeighborAreaSwitchOptimizer.optimize(problem, s2)
-      val sol = s3
-      val currentPrice = sol.map(_.price).sum
-      optimized = currentPrice < previousPrice
-      previousPrice = currentPrice
-      optimizedSolution = sol
+    while (optimized && !timeout.shouldTerminate()) {
+      try {
+        val (_, s1) = TwoAreasSwitchOptimizer.optimizeOnce(problem, optimizedSolution)
+        if (timeout.shouldTerminate()) throw new TimeoutException
+        val (_, s2) = InAreaOptimizer.optimizeOnce(problem, s1)
+        if (timeout.shouldTerminate()) throw new TimeoutException
+        val (_, s3) = NeighborAreaSwitchOptimizer.optimizeOnce(problem, s2)
+        val sol = s3
+        val currentPrice = sol.map(_.price).sum
+        optimized = currentPrice < previousPrice
+        previousPrice = currentPrice
+        optimizedSolution = sol
+      } catch {
+        case e: TimeoutException => {}
+      }
     }
     optimizedSolution
   }
 }
 
 object NeighborAreaSwitchOptimizer {
-  def optimize(problem: Problem, solution: List[Flight]): List[Flight] = {
+  def optimize(problem: Problem, solution: List[Flight], timeout: Timeout): List[Flight] = {
     var optimized = true
     var optimizedSolution = solution
     while (optimized) {
@@ -332,7 +352,7 @@ object NeighborAreaSwitchOptimizer {
 }
 
 object TwoAreasSwitchOptimizer {
-  def optimize(problem: Problem, solution: List[Flight]): List[Flight] = {
+  def optimize(problem: Problem, solution: List[Flight], timeout: Timeout): List[Flight] = {
     var optimized = true
     var optimizedSolution = solution
     while (optimized) {
@@ -347,31 +367,36 @@ object TwoAreasSwitchOptimizer {
     val currentPrice = solution.map(_.price).sum
     var optimizedPrice = currentPrice
     val betterSolution = solution.to[collection.mutable.ArrayBuffer]
-    for {
-      dayA1 <- 1 to (problem.areaCount - 3)
-      dayA2 = dayA1 + 1
-      dayB3 <- (dayA2 + 1) to (problem.areaCount - 1)
-      dayB4 = dayB3 + 1
-      flight1 = solution(dayA1 - 1)
-      flight2 = solution(dayA2 - 1)
-      flight3 = solution(dayB3 - 1)
-      flight4 = solution(dayB4 - 1)
-      pricePer4Flights = flight1.price + flight2.price + flight3.price + flight4.price
-      substitute1 <- problem.flights((dayA1, flight1.from)).filter(s => s.to == flight3.to)
-      substitute4 <- problem.flights((dayA2, flight4.from)).filter(s => s.to == flight2.to)
-      substitute3 <- problem.flights((dayB3, flight3.from)).filter(s => s.to == flight1.to)
-      substitute2 <- problem.flights((dayB4, flight2.from)).filter(s => s.to == flight4.to)
-      if currentPrice <= optimizedPrice
-      pricePer4SubstituteFlights = substitute1.price + substitute2.price + substitute3.price + substitute4.price
-      if pricePer4SubstituteFlights < pricePer4Flights
-      _ = { optimizedPrice = currentPrice - pricePer4Flights + pricePer4SubstituteFlights }
-      _ = {
-        betterSolution(dayA1 - 1) = substitute1
-        betterSolution(dayA2 - 1) = substitute2
-        betterSolution(dayB3 - 1) = substitute3
-        betterSolution(dayB4 - 1) = substitute4
+    var dayA1 = 1
+    while (dayA1 < problem.areaCount - 2) {
+      val flight1 = solution(dayA1 - 1)
+      val dayA2 = dayA1 + 1
+      val flight2 = solution(dayA2 - 1)
+      var dayB3 = dayA2 + 1
+      while (optimizedPrice >= currentPrice && dayB3 < problem.areaCount) {
+        val dayB4 = dayB3 + 1
+        val flight3 = solution(dayB3 - 1)
+        val flight4 = solution(dayB4 - 1)
+        val pricePer4Flights = flight1.price + flight2.price + flight3.price + flight4.price
+        for {
+          substitute1 <- problem.flights((dayA1, flight1.from)).filter(s => s.to == flight3.to)
+          substitute4 <- problem.flights((dayA2, flight4.from)).filter(s => s.to == flight2.to)
+          substitute3 <- problem.flights((dayB3, flight3.from)).filter(s => s.to == flight1.to)
+          substitute2 <- problem.flights((dayB4, flight2.from)).filter(s => s.to == flight4.to)
+          if currentPrice <= optimizedPrice
+          pricePer4SubstituteFlights = substitute1.price + substitute2.price + substitute3.price + substitute4.price
+          if pricePer4SubstituteFlights < pricePer4Flights
+        } {
+          optimizedPrice = currentPrice - pricePer4Flights + pricePer4SubstituteFlights
+          betterSolution(dayA1 - 1) = substitute1
+          betterSolution(dayA2 - 1) = substitute2
+          betterSolution(dayB3 - 1) = substitute3
+          betterSolution(dayB4 - 1) = substitute4
+        }
+        dayB3 = dayB3 + 1
       }
-    } yield null
+      dayA1 = dayA1 + 1
+    }
     (optimizedPrice < currentPrice, betterSolution.toList.sortBy(_.day))
   }
 }
