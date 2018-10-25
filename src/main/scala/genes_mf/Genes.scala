@@ -91,7 +91,8 @@ object Main {
       val day = flightLine(2).toInt
       if (day == 0) {
         for (day <- 1 to totalDays) {
-          flightDefinitions.append(Flight(from, to, day, price))
+          val flight = Flight(from, to, day, price)
+          flightDefinitions.append(flight)
         }
       } else {
         val flight = Flight(from, to, day, price)
@@ -100,6 +101,38 @@ object Main {
     }
     flightDefinitions
   }
+
+//  def readFlights(totalDays: Int): List[Flight] = {
+//    var flightDefinitions = mutable.Map[(Int, String, String), Flight]()
+//    implicit val flightOrdering = Ordering.by[Flight, Int](flight => flight.price)
+//    var line = ""
+//    while ( {
+//      line = reader.readLine()
+//      line != null && line != ""
+//    }) {
+//      val flightLine = line.split(" ")
+//      val from = flightLine(0).intern()
+//      val to = flightLine(1).intern()
+//      val price = flightLine(3).toInt
+//      val day = flightLine(2).toInt
+//      if (day == 0) {
+//        for (day <- 1 to totalDays) {
+//          val flight = Flight(from, to, day, price)
+//          val existingFlight = flightDefinitions.getOrElseUpdate(flight.key3, flight)
+//          if (existingFlight.price > flight.price) flightDefinitions.update(flight.key3, flight)
+//          
+//        }
+//      } else {
+//        val flight = Flight(from, to, day, price)
+//        val existingFlight = flightDefinitions.getOrElseUpdate(flight.key3, flight)
+//        if (existingFlight.price > flight.price) flightDefinitions.update(flight.key3, flight)
+//      }
+//    }
+//    flightDefinitions
+//      .toMap
+//      .values
+//      .toList
+//  }
 
   def processInput(inputStream: InputStream): Problem = {
     startTs = System.currentTimeMillis()
