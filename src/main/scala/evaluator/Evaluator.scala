@@ -15,7 +15,9 @@ import scala.collection.mutable.ArrayBuffer
 
 //import splitter.{Main, Flight, Problem}
 
-import genes.{Main, Flight, Problem}
+//import genes.{Main, Flight, Problem}
+
+import genes_mf.{Main, Flight, Problem}
 
 object Evaluator {
 
